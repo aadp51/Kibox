@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>🛠️ Keybox Forge | Pro Edition</title>
 <style>
-/* TEMA: NEON CYAN & DEEP SPACE */
 :root{--accent:#00f2ff;--bg1:#0a0f14;--bg2:#020406;--text:#f0f0f0;--muted:#6272a4;--card:rgba(255,255,255,0.02);--danger:#ff6b6b}
 *{-webkit-tap-highlight-color:transparent;box-sizing:border-box}
 body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;font-family:'Segoe UI',Roboto,sans-serif;background:linear-gradient(135deg,var(--bg1),var(--bg2));color:var(--text);padding:40px 20px}
@@ -35,7 +34,6 @@ strong{color:var(--accent)}
 .err{color:var(--danger)}
 .hidden{display:none}
 
-/* FOOTER/INTEGRITY CHECKER */
 .checker-btn{width:100%;margin-top:15px;background:transparent;border:1px solid var(--danger);color:var(--danger);font-weight:800}
 .checker-btn:hover{background:rgba(255,107,107,0.1);border-color:var(--danger)}
 </style>
@@ -120,14 +118,9 @@ async function doFetch(type) {
       final = rot(hex(d)); ["every","soul","will","taste","death"].forEach(w=> final = final.split(w).join(""));
     }
     
-    // --- PEMBERSIH XML ANTI CRASH ---
-    // Ngilangin komentar tele yuri
     final = final.split("").join("");
-    // Benerin typo atribut
     final = final.split('algorithm="@Yurii0307"').join('algorithm="rsa"');
-    // Rapihin spasi kosong
     final = final.replace(/\n\s*\n/g, "\n");
-    // --------------------------------
     
     setDownload(final, sources[type].n);
     msg.innerHTML = `STATUS: <strong>READY</strong><br>SOURCE UPDATE: <strong>${lastUpdate}</strong>`;
