@@ -110,6 +110,8 @@ async function doFetch(type) {
   ld.classList.remove('hidden'); dl.classList.add('hidden'); msg.innerHTML='';
   try {
     const res = await fetch(sources[type].u);
+    if (!res.ok) throw new Error("Gagal ambil data dari GitHub aslinya");
+    
     let raw = await res.text(), final = '';
     const lastUpdate = await getUpdateInfo(sources[type].r, sources[type].p);
     
@@ -122,38 +124,19 @@ async function doFetch(type) {
     }
     
     // --- PROSES SANITIZER (BERSIH-BERSIH XML) ---
-    // 1. Sapu bersih semua komentar ()
-    final = final.replace(//g, "");
-    
-    // 2. Benerin atribut algorithm yang dikasih watermark nama orang
-    final = final.replace(/algorithm="[^"]*Yuri[^"]*"/gi, 'algorithm="rsa"');
-    
-    // 3. Rapihin baris kosong/enter yang berlebihan biar injector ROM nggak bingung
-    final = final.replace(/^\s*[\r\n]/gm, "");
-    // ---------------------------------------------
+    final = final.replace(//g, ""); // Sapu komentar
+    final = final.replace(/algorithm="[^"]*Yuri[^"]*"/gi, 'algorithm="rsa"'); // Benerin atribut
+    final = final.replace(/^\s*[\r\n]/gm, ""); // Rapihin spasi
     
     setDownload(final, sources[type].n);
     msg.innerHTML = `STATUS: <strong>READY & CLEANED 🧹</strong><br>SOURCE UPDATE: <strong>${lastUpdate}</strong>`;
-  } catch(e) { msg.innerHTML = "<span class='err'>X FETCH FAILED X</span>"; }
-  finally { ld.classList.add('hidden'); }
-}
-
-function buildCustom() {
-  const key=$('inKey').value, cert=$('inCert').value;
-  if(!key || !cert) return alert("Bahan belum lengkap, Bang!");
-  const numCert = (cert.match(/BEGIN CERTIFICATE/g) || []).length;
-  const final = `<?xml version="1.0"?>\n<AndroidAttestation>\n<NumberOfKeyboxes>1</NumberOfKeyboxes>\n<Keybox DeviceID="KeyboxForge_Custom">\n<Key algorithm="ecdsa">\n<PrivateKey format="pem">\n${key.trim()}\n</PrivateKey>\n<CertificateChain>\n<NumberOfCertificates>${numCert}</NumberOfCertificates>\n${cert.trim()}\n</CertificateChain>\n</Key>\n</Keybox>\n</AndroidAttestation>`;
-  setDownload(final, "forged_keybox.xml");
-  $('msg').innerHTML = "STATUS: <strong>CUSTOM FORGE SUCCESS</strong>";
-}
-
-function setDownload(data, name) {
-  const dl=$('dl');
-  if(dl.href) URL.revokeObjectURL(dl.href);
-  dl.href = URL.createObjectURL(new Blob([data], {type:'text/xml'}));
-  dl.download = name;
-  dl.textContent = "📥 DOWNLOAD " + name.toUpperCase();
-  dl.classList.remove('hidden');
+  } catch(e) { 
+    // Bagian ini buat nangkep error biar kelihatan di layar
+    msg.innerHTML = `<span class='err'>X FETCH FAILED: ${e.message} X</span>`; 
+    alert("Waduh macet bang! Detail error: " + e.message);
+  } finally { 
+    ld.classList.add('hidden'); 
+  }
 }
 </script>
 </body>
