@@ -120,10 +120,15 @@ async function doFetch(type) {
       final = rot(hex(d)); ["every","soul","will","taste","death"].forEach(w=> final = final.split(w).join(""));
     }
     
-    final = final.replace(//g, "");
-    final = final.replace(/algorithm="[^"]*Yuri[^"]*"/gi, 'algorithm="rsa"');
-    final = final.replace(/^\s*[\r\n]/gm, "");
-
+    // --- PEMBERSIH XML ANTI CRASH ---
+    // Ngilangin komentar tele yuri
+    final = final.split("").join("");
+    // Benerin typo atribut
+    final = final.split('algorithm="@Yurii0307"').join('algorithm="rsa"');
+    // Rapihin spasi kosong
+    final = final.replace(/\n\s*\n/g, "\n");
+    // --------------------------------
+    
     setDownload(final, sources[type].n);
     msg.innerHTML = `STATUS: <strong>READY</strong><br>SOURCE UPDATE: <strong>${lastUpdate}</strong>`;
   } catch(e) { msg.innerHTML = "<span class='err'>X FETCH FAILED X</span>"; }
