@@ -113,6 +113,7 @@ async function doFetch(type) {
     let raw = await res.text(), final = '';
     const lastUpdate = await getUpdateInfo(sources[type].r, sources[type].p);
     
+    // Proses Decode Base64 & ROT13
     if(type==='tricky') final = atob(hex(raw.replace(/\s+/g,'')));
     else if(type==='yurikey') final = atob(raw.trim());
     else {
@@ -125,7 +126,6 @@ async function doFetch(type) {
     final = final.replace(//g, "");
     
     // 2. Benerin atribut algorithm yang dikasih watermark nama orang
-    // Ngebaca kalau ada kata "Yuri" di dalam tag algorithm, paksa ganti jadi "rsa"
     final = final.replace(/algorithm="[^"]*Yuri[^"]*"/gi, 'algorithm="rsa"');
     
     // 3. Rapihin baris kosong/enter yang berlebihan biar injector ROM nggak bingung
@@ -138,6 +138,23 @@ async function doFetch(type) {
   finally { ld.classList.add('hidden'); }
 }
 
+function buildCustom() {
+  const key=$('inKey').value, cert=$('inCert').value;
+  if(!key || !cert) return alert("Bahan belum lengkap, Bang!");
+  const numCert = (cert.match(/BEGIN CERTIFICATE/g) || []).length;
+  const final = `<?xml version="1.0"?>\n<AndroidAttestation>\n<NumberOfKeyboxes>1</NumberOfKeyboxes>\n<Keybox DeviceID="KeyboxForge_Custom">\n<Key algorithm="ecdsa">\n<PrivateKey format="pem">\n${key.trim()}\n</PrivateKey>\n<CertificateChain>\n<NumberOfCertificates>${numCert}</NumberOfCertificates>\n${cert.trim()}\n</CertificateChain>\n</Key>\n</Keybox>\n</AndroidAttestation>`;
+  setDownload(final, "forged_keybox.xml");
+  $('msg').innerHTML = "STATUS: <strong>CUSTOM FORGE SUCCESS</strong>";
+}
+
+function setDownload(data, name) {
+  const dl=$('dl');
+  if(dl.href) URL.revokeObjectURL(dl.href);
+  dl.href = URL.createObjectURL(new Blob([data], {type:'text/xml'}));
+  dl.download = name;
+  dl.textContent = "📥 DOWNLOAD " + name.toUpperCase();
+  dl.classList.remove('hidden');
+}
 </script>
 </body>
 </html>
