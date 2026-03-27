@@ -80,9 +80,22 @@ strong{color:var(--accent)}
 </div>
 
 <script>
-const $=id=>document.getElementById(id);
-const hex=(h)=>h.match(/../g).map(b=>String.fromCharCode(parseInt(b,16))).join('');
-const rot=(s)=>s.replace(/[a-z]/gi,c=>String.fromCharCode((c<='Z'?65:97)+(c.charCodeAt(0)-(c<='Z'?65:97)+13)%26));
+// Pakai fungsi standar biar nggak crash
+function getEl(id) {
+  return document.getElementById(id);
+}
+
+function hex(h) {
+  var match = h.match(/../g);
+  if(!match) return '';
+  return match.map(function(b){ return String.fromCharCode(parseInt(b,16)) }).join('');
+}
+
+function rot(s) {
+  return s.replace(/[a-z]/gi, function(c) {
+    return String.fromCharCode((c <= 'Z' ? 65 : 97) + (c.charCodeAt(0) - (c <= 'Z' ? 65 : 97) + 13) % 26);
+  });
+}
 
 const sources = {
   tricky: { r:'KOWX712/Tricky-Addon-Update-Target-List', p:'.extra', u: 'https://raw.githubusercontent.com/KOWX712/Tricky-Addon-Update-Target-List/keybox/.extra', n: 'tricky_addon.xml' },
@@ -90,64 +103,96 @@ const sources = {
   integrity: { r:'MeowDump/MeowDump', p:'NullVoid/ShockWave.tar', u: 'https://raw.githubusercontent.com/MeowDump/MeowDump/main/NullVoid/ShockWave.tar', n: 'integritybox.xml' }
 };
 
-const formatTime=ms=>{
-  const min=Math.floor(ms/60000), hr=Math.floor(min/60), day=Math.floor(hr/24);
-  if(min<1) return 'Just now'; if(min<60) return min+'m ago'; if(hr<24) return hr+'h ago';
-  return day+(day===1?' day ago':' days ago');
-};
+function formatTime(ms) {
+  const min = Math.floor(ms/60000);
+  const hr = Math.floor(min/60);
+  const day = Math.floor(hr/24);
+  if(min < 1) return 'Just now'; 
+  if(min < 60) return min + 'm ago'; 
+  if(hr < 24) return hr + 'h ago';
+  return day + ' days ago';
+}
 
 async function getUpdateInfo(repo, path) {
   try {
-    const res = await fetch(`https://api.github.com/repos/${repo}/commits?path=${path}&per_page=1`);
+    const res = await fetch('https://api.github.com/repos/' + repo + '/commits?path=' + path + '&per_page=1');
     if(!res.ok) return 'Check Manual';
     const data = await res.json();
     return formatTime(Date.now() - new Date(data[0].commit.committer.date));
-  } catch { return 'Unavailable'; }
+  } catch(err) { 
+    return 'Unavailable'; 
+  }
 }
 
 async function doFetch(type) {
-  const ld=$('ld'), dl=$('dl'), msg=$('msg');
-  ld.classList.remove('hidden'); dl.classList.add('hidden'); msg.innerHTML='';
+  const ld = getEl('ld');
+  const dl = getEl('dl');
+  const msg = getEl('msg');
+  
+  // Tampilkan loading, sembunyikan tombol
+  ld.classList.remove('hidden'); 
+  dl.classList.add('hidden'); 
+  msg.innerHTML = '';
+  
   try {
     const res = await fetch(sources[type].u);
-    let raw = await res.text(), final = '';
+    if(!res.ok) throw new Error("Gagal mengambil data sumber");
+    
+    let raw = await res.text();
+    let final = '';
     const lastUpdate = await getUpdateInfo(sources[type].r, sources[type].p);
     
-    if(type==='tricky') final = atob(hex(raw.replace(/\s+/g,'')));
-    else if(type==='yurikey') final = atob(raw.trim());
-    else {
-      let d = raw.trim(); for(let i=0; i<10; i++) d = atob(d.replace(/\s/g,''));
-      final = rot(hex(d)); ["every","soul","will","taste","death"].forEach(w=> final = final.split(w).join(""));
+    // Proses Decode (Hapus spasi liar biar fungsi atob() nggak crash)
+    if(type === 'tricky') {
+      final = atob(hex(raw.replace(/\s+/g,'')));
+    } else if(type === 'yurikey') {
+      // Hilangkan newline dan spasi yang nyelip di Base64 Yurikey
+      final = atob(raw.replace(/[\r\n\s]+/g, ''));
+    } else {
+      let d = raw.replace(/[\r\n\s]+/g, ''); 
+      for(let i=0; i<10; i++) {
+        d = atob(d);
+      }
+      final = rot(hex(d)); 
+      ["every","soul","will","taste","death"].forEach(function(w) {
+        final = final.split(w).join("");
+      });
     }
     
-    // --- INJEKSI SANITIZER ---
+    // --- SANITIZER PEMBERSIH XML ---
     try {
-      final = final.replace(//g, ""); // Ngilangin final = final.replace(/algorithm="[^"]*Yuri[^"]*"/gi, 'algorithm="rsa"'); // Benerin algoritma
-      final = final.replace(/^\s*[\r\n]/gm, ""); // Ngehapus spasi enter doang
-    } catch(err) {
-      console.log("Sanitizer error, tapi lanjut jalan", err);
+      final = final.replace(//g, ""); // Hapus tag komentar Telegram
+      final = final.replace(/algorithm="[^"]*Yuri[^"]*"/gi, 'algorithm="rsa"'); // Benerin atribut RSA
+      final = final.replace(/^\s*[\r\n]/gm, ""); // Bersihkan enter kosong
+    } catch(sanitizerErr) {
+      console.log("Sanitizer error", sanitizerErr);
     }
-    // -------------------------
+    // --------------------------------
     
     setDownload(final, sources[type].n);
-    msg.innerHTML = `STATUS: <strong>READY (CLEANED)</strong><br>SOURCE UPDATE: <strong>${lastUpdate}</strong>`;
+    msg.innerHTML = "STATUS: <strong>READY & CLEANED 🧹</strong><br>SOURCE UPDATE: <strong>" + lastUpdate + "</strong>";
   } catch(e) { 
-    msg.innerHTML = `<span class='err'>X FETCH FAILED: ${e.message} X</span>`; 
+    msg.innerHTML = "<span class='err'>X FETCH FAILED: " + e.message + " X</span>"; 
+    alert("Waduh macet bang! Detail: " + e.message);
+  } finally { 
+    ld.classList.add('hidden'); 
   }
-  finally { ld.classList.add('hidden'); }
 }
 
 function buildCustom() {
-  const key=$('inKey').value, cert=$('inCert').value;
+  const key = getEl('inKey').value;
+  const cert = getEl('inCert').value;
   if(!key || !cert) return alert("Bahan belum lengkap, Bang!");
+  
   const numCert = (cert.match(/BEGIN CERTIFICATE/g) || []).length;
-  const final = `<?xml version="1.0"?>\n<AndroidAttestation>\n<NumberOfKeyboxes>1</NumberOfKeyboxes>\n<Keybox DeviceID="KeyboxForge_Custom">\n<Key algorithm="ecdsa">\n<PrivateKey format="pem">\n${key.trim()}\n</PrivateKey>\n<CertificateChain>\n<NumberOfCertificates>${numCert}</NumberOfCertificates>\n${cert.trim()}\n</CertificateChain>\n</Key>\n</Keybox>\n</AndroidAttestation>`;
+  const final = '<?xml version="1.0"?>\n<AndroidAttestation>\n<NumberOfKeyboxes>1</NumberOfKeyboxes>\n<Keybox DeviceID="KeyboxForge_Custom">\n<Key algorithm="ecdsa">\n<PrivateKey format="pem">\n' + key.trim() + '\n</PrivateKey>\n<CertificateChain>\n<NumberOfCertificates>' + numCert + '</NumberOfCertificates>\n' + cert.trim() + '\n</CertificateChain>\n</Key>\n</Keybox>\n</AndroidAttestation>';
+  
   setDownload(final, "forged_keybox.xml");
-  $('msg').innerHTML = "STATUS: <strong>CUSTOM FORGE SUCCESS</strong>";
+  getEl('msg').innerHTML = "STATUS: <strong>CUSTOM FORGE SUCCESS</strong>";
 }
 
 function setDownload(data, name) {
-  const dl=$('dl');
+  const dl = getEl('dl');
   if(dl.href) URL.revokeObjectURL(dl.href);
   dl.href = URL.createObjectURL(new Blob([data], {type:'text/xml'}));
   dl.download = name;
@@ -155,5 +200,6 @@ function setDownload(data, name) {
   dl.classList.remove('hidden');
 }
 </script>
+
 </body>
 </html>
