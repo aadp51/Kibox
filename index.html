@@ -26,14 +26,14 @@ textarea:focus{outline:none;border-color:var(--accent)}
 textarea::placeholder{color:rgba(98,114,164,0.5)}
 
 .output{min-height:140px;display:flex;flex-direction:column;align-items:center;gap:15px;margin-top:10px;width:100%}
-#dl{color:#000;font-weight:800;text-decoration:none;background:var(--accent);padding:14px 28px;border-radius:12px;box-shadow:0 4px 15px rgba(0,242,255,0.3);transition:0.2s;width:100%;max-width:300px;text-align:center;display:none}
+#dl{color:#000;font-weight:800;text-decoration:none;background:var(--accent);padding:14px 28px;border-radius:12px;box-shadow:0 4px 15px rgba(0,242,255,0.3);transition:0.2s;width:100%;max-width:300px;text-align:center}
 #dl:active{transform:scale(0.95)}
 #msg{font-size:13px;color:var(--muted);text-align:center;line-height:1.6}
-#ld{color:var(--accent);font-weight:bold;letter-spacing:2px;display:none}
 
 label{font-size:11px;color:var(--muted);margin-top:12px;display:block;font-weight:bold}
 strong{color:var(--accent)}
 .err{color:var(--danger)}
+.hidden{display:none}
 
 /* FOOTER/INTEGRITY CHECKER */
 .checker-btn{width:100%;margin-top:15px;background:transparent;border:1px solid var(--danger);color:var(--danger);font-weight:800}
@@ -74,25 +74,15 @@ strong{color:var(--accent)}
 </div>
 
 <div class="output">
-  <div id="ld">⚡ FORGING...</div>
-  <a id="dl"></a>
+  <div id="ld" class="hidden" style="color:var(--accent);font-weight:bold;letter-spacing:2px">⚡ FORGING...</div>
+  <a id="dl" class="hidden"></a>
   <div id="msg"></div>
 </div>
 
 <script>
-const $ = id => document.getElementById(id);
-
-// Safe Hex Converter
-const hex = (h) => {
-  let str = '';
-  for (let i = 0; i < h.length; i += 2) {
-    str += String.fromCharCode(parseInt(h.substr(i, 2), 16));
-  }
-  return str;
-};
-
-// Safe ROT13
-const rot = (s) => s.replace(/[a-zA-Z]/g, c => String.fromCharCode((c <= 'Z' ? 90 : 122) >= (c = c.charCodeAt(0) + 13) ? c : c - 26));
+const $=id=>document.getElementById(id);
+const hex=(h)=>h.match(/../g).map(b=>String.fromCharCode(parseInt(b,16))).join('');
+const rot=(s)=>s.replace(/[a-z]/gi,c=>String.fromCharCode((c<='Z'?65:97)+(c.charCodeAt(0)-(c<='Z'?65:97)+13)%26));
 
 const sources = {
   tricky: { r:'KOWX712/Tricky-Addon-Update-Target-List', p:'.extra', u: 'https://raw.githubusercontent.com/KOWX712/Tricky-Addon-Update-Target-List/keybox/.extra', n: 'tricky_addon.xml' },
@@ -100,97 +90,69 @@ const sources = {
   integrity: { r:'MeowDump/MeowDump', p:'NullVoid/ShockWave.tar', u: 'https://raw.githubusercontent.com/MeowDump/MeowDump/main/NullVoid/ShockWave.tar', n: 'integritybox.xml' }
 };
 
-const formatTime = ms => {
-  const min = Math.floor(ms/60000), hr = Math.floor(min/60), day = Math.floor(hr/24);
-  if(min < 1) return 'Baru aja'; 
-  if(min < 60) return min + 'm lalu'; 
-  if(hr < 24) return hr + 'j lalu';
-  return day + ' hari lalu';
+const formatTime=ms=>{
+  const min=Math.floor(ms/60000), hr=Math.floor(min/60), day=Math.floor(hr/24);
+  if(min<1) return 'Just now'; if(min<60) return min+'m ago'; if(hr<24) return hr+'h ago';
+  return day+(day===1?' day ago':' days ago');
 };
 
 async function getUpdateInfo(repo, path) {
   try {
     const res = await fetch(`https://api.github.com/repos/${repo}/commits?path=${path}&per_page=1`);
-    if(!res.ok) return 'Cek Manual';
+    if(!res.ok) return 'Check Manual';
     const data = await res.json();
     return formatTime(Date.now() - new Date(data[0].commit.committer.date));
-  } catch { return 'Gagal cek waktu'; }
+  } catch { return 'Unavailable'; }
 }
 
 async function doFetch(type) {
-  const ld = $('ld'), dl = $('dl'), msg = $('msg');
-  // Pastikan loading muncul dan tombol hilang
-  ld.style.display = 'block'; 
-  dl.style.display = 'none';
-  msg.innerHTML = '';
-  
+  const ld=$('ld'), dl=$('dl'), msg=$('msg');
+  ld.classList.remove('hidden'); dl.classList.add('hidden'); msg.innerHTML='';
   try {
     const res = await fetch(sources[type].u);
-    if (!res.ok) throw new Error("Server GitHub gagal ngerespon (Limit/Down)");
-    
-    let raw = await res.text();
-    let final = '';
+    let raw = await res.text(), final = '';
     const lastUpdate = await getUpdateInfo(sources[type].r, sources[type].p);
     
-    // Hapus semua spasi & enter dari raw data biar atob() nggak crash di HP
-    let cleanRaw = raw.replace(/[\r\n\s]+/g, ''); 
-    
-    // Proses Decode
-    if(type === 'tricky') {
-      final = atob(hex(cleanRaw));
-    } else if(type === 'yurikey') {
-      final = atob(cleanRaw);
-    } else {
-      let d = cleanRaw; 
-      for(let i=0; i<10; i++) {
-        d = atob(d.replace(/[\r\n\s]+/g, ''));
-      }
-      final = rot(hex(d)); 
-      ["every","soul","will","taste","death"].forEach(w => final = final.split(w).join(""));
+    if(type==='tricky') final = atob(hex(raw.replace(/\s+/g,'')));
+    else if(type==='yurikey') final = atob(raw.trim());
+    else {
+      let d = raw.trim(); for(let i=0; i<10; i++) d = atob(d.replace(/\s/g,''));
+      final = rot(hex(d)); ["every","soul","will","taste","death"].forEach(w=> final = final.split(w).join(""));
     }
     
-    // --- SANITIZER SUPER BERSIH ---
-    // 1. Hapus semua komentar XML kayak telegram yuri
-    final = final.replace(//g, "");
+    // --- INJEKSI SANITIZER ---
+    try {
+      final = final.replace(//g, ""); // Ngilangin final = final.replace(/algorithm="[^"]*Yuri[^"]*"/gi, 'algorithm="rsa"'); // Benerin algoritma
+      final = final.replace(/^\s*[\r\n]/gm, ""); // Ngehapus spasi enter doang
+    } catch(err) {
+      console.log("Sanitizer error, tapi lanjut jalan", err);
+    }
+    // -------------------------
     
-    // 2. Benerin atribut algorithm (Yuri, dkk -> rsa)
-    final = final.replace(/algorithm="[^"]*Yuri[^"]*"/gi, 'algorithm="rsa"');
-    
-    // 3. Rapihin spasi kosong / baris enter berlebih
-    final = final.replace(/^\s*[\r\n]/gm, "");
-    
-    // Eksekusi fungsi nampilin tombol download
     setDownload(final, sources[type].n);
-    msg.innerHTML = `STATUS: <strong>READY & CLEANED 🧹</strong><br>UPDATE ASLI: <strong>${lastUpdate}</strong>`;
-    
+    msg.innerHTML = `STATUS: <strong>READY (CLEANED)</strong><br>SOURCE UPDATE: <strong>${lastUpdate}</strong>`;
   } catch(e) { 
-    msg.innerHTML = `<span class='err'>ERROR FETCH: ${e.message}</span>`; 
-    console.error(e);
-  } finally { 
-    // Matiin tulisan loading
-    ld.style.display = 'none'; 
+    msg.innerHTML = `<span class='err'>X FETCH FAILED: ${e.message} X</span>`; 
   }
+  finally { ld.classList.add('hidden'); }
 }
 
 function buildCustom() {
-  const key = $('inKey').value, cert = $('inCert').value;
-  if(!key || !cert) {
-      $('msg').innerHTML = "<span class='err'>Bahan belum lengkap, Bang!</span>";
-      return;
-  }
+  const key=$('inKey').value, cert=$('inCert').value;
+  if(!key || !cert) return alert("Bahan belum lengkap, Bang!");
   const numCert = (cert.match(/BEGIN CERTIFICATE/g) || []).length;
   const final = `<?xml version="1.0"?>\n<AndroidAttestation>\n<NumberOfKeyboxes>1</NumberOfKeyboxes>\n<Keybox DeviceID="KeyboxForge_Custom">\n<Key algorithm="ecdsa">\n<PrivateKey format="pem">\n${key.trim()}\n</PrivateKey>\n<CertificateChain>\n<NumberOfCertificates>${numCert}</NumberOfCertificates>\n${cert.trim()}\n</CertificateChain>\n</Key>\n</Keybox>\n</AndroidAttestation>`;
   setDownload(final, "forged_keybox.xml");
-  $('msg').innerHTML = "STATUS: <strong>CUSTOM FORGE SUCCESS 🛠️</strong>";
+  $('msg').innerHTML = "STATUS: <strong>CUSTOM FORGE SUCCESS</strong>";
 }
 
 function setDownload(data, name) {
-  const dl = $('dl');
+  const dl=$('dl');
   if(dl.href) URL.revokeObjectURL(dl.href);
-  dl.href = URL.createObjectURL(new Blob([data], {type: 'text/xml'}));
+  dl.href = URL.createObjectURL(new Blob([data], {type:'text/xml'}));
   dl.download = name;
   dl.textContent = "📥 DOWNLOAD " + name.toUpperCase();
-  dl.style.display = 'block'; // Paksa tampil pakai block
+  dl.classList.remove('hidden');
 }
 </script>
 </body>
