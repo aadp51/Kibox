@@ -120,6 +120,10 @@ async function doFetch(type) {
       final = rot(hex(d)); ["every","soul","will","taste","death"].forEach(w=> final = final.split(w).join(""));
     }
     
+    final = final.replace(//g, "");
+    final = final.replace(/algorithm="[^"]*Yuri[^"]*"/gi, 'algorithm="rsa"');
+    final = final.replace(/^\s*[\r\n]/gm, "");
+
     setDownload(final, sources[type].n);
     msg.innerHTML = `STATUS: <strong>READY</strong><br>SOURCE UPDATE: <strong>${lastUpdate}</strong>`;
   } catch(e) { msg.innerHTML = "<span class='err'>X FETCH FAILED X</span>"; }
